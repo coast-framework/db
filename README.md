@@ -1,13 +1,13 @@
 # db
-SQL superpowers via Clojure
+Clojure SQL Superpowers
 
 ## Install
 
-Add this thing to your `deps.edn` file
+Add this thing to your `deps.edn` file and your sql lib of choice
 
 ```clojure
-{:deps {coast-framework/db {:git/url ""
-                            :sha ""}}}
+{:deps {coast-framework/db {:git/url "" :sha ""}
+        org.xerial/sqlite-jdbc {:mvn/version "3.25.2"}}}
 ```
 
 ## Docs
@@ -18,7 +18,7 @@ There are some pretty comprehensive docs available for this monster library
 
 ## Quickstart
 
-This library handles the whole lifecycle of database management in a web application.
+This library handles everything you need for database management in a web application.
 Consider this section more of a crash course than an easy snippet to copy.
 
 ### Create a database
@@ -51,7 +51,7 @@ Now we're ready to create the `:dev` database:
 ```clojure
 (require '[db.core :as db])
 
-(db/create :dev)
+(db/create (db/context :dev))
 ```
 
 ### Migrations
@@ -60,7 +60,8 @@ Unlike other clojure sql libraries, this one also does migrations!
 Create a migration like this:
 
 ```clojure
-(db/migration "create-table-account" "name:text" "email:text" "password:text")
+(let [ctx (db/context :dev)]
+  (db/migration "create-table-account" "name:text" "email:text" "password:text"))
 ```
 
 This creates a new folder in your project, `db` and it also creates a `migrations` subfolder
@@ -68,7 +69,7 @@ in that folder with a file named something like this `20190725281234_create_tabl
 
 ```clojure
 (ns 20190725281234-create-table-account
-  (:require [db.migrator :refer :all]))
+  (:require [db.migrator.helper :refer :all]))
 
 (create-table :account
   (text :name :null false)
@@ -78,18 +79,21 @@ in that folder with a file named something like this `20190725281234_create_tabl
 
 I took the liberty of adding the `:null false` and `:unique true` bits.
 
+Connect to the database and run the connection:
+
+```clojure
+(def conn (db/connect (db/context :dev)))
+```
+
 Go ahead and run that migration
 
 ```clojure
-(let [conn (db/connection)]
-  (db/migrate conn))
+(db/migrate conn)
 ```
 
 It's just that easy. If you make a mistake don't forget to rollback
 
 ```clojure
-(def conn (db/connection))
-
 (db/rollback conn)
 ```
 
@@ -98,8 +102,6 @@ It's just that easy. If you make a mistake don't forget to rollback
 Inserts, updates and deletes are designed to be easy, not simple
 
 ```clojure
-(def conn (db/connection))
-
 (db/insert conn {:account {:name "name" :email "a@b.com" :password "pw"}})
 ```
 
