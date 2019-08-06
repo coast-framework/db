@@ -11,7 +11,13 @@
     (is (= "account" (sql/table {:account/name "hello"}))))
 
   (testing "table with qualified keyword map"
-    (is (= "organization" (sql/table #:organization{:id 1 :name [nil "name"]})))))
+    (is (= "organization" (sql/table #:organization{:id 1 :name [nil "name"]}))))
+
+  (testing "table with sequential? and qualified keyword maps"
+    (is (= "memberships" (sql/table [{:memberships/name "name"}]))))
+
+  (testing "table with nested map with vector"
+    (is (= "account" (sql/table {:account [{:name "name"}]})))))
 
 
 (deftest where-test
@@ -54,7 +60,11 @@
 
   (testing "update with a complex where clause"
     (is (= ["update account set name = ? where id = ? and name is null" "name" 1]
-           (sql/update-all {} {:account/name "name"} {:id 1 :name nil})))))
+           (sql/update-all {} {:account/name "name"} {:id 1 :name nil}))))
+
+  (testing "update with a sql-vec where clause"
+    (is (= ["update account set name = ? where name = ? or name = ?" "name1" "name2" "name3"]
+           (sql/update-all {} {:account/name "name1"} ["name = ? or name = ?" "name2" "name3"])))))
 
 
 (deftest delete-test
@@ -77,3 +87,52 @@
   (testing "delete-all with a complex where clause"
     (is (= ["delete from account where account.id = ? and (account.name in (?) or account.name is null)" 1 "name"]
            (sql/delete-all {} #:account{:id 1 :name [nil "name"]})))))
+
+
+(deftest fetch-test
+  (testing "select without id"
+    (is (= ["select * from account"]
+           (sql/fetch {} [:account]))))
+
+  (testing "basic select"
+    (is (= ["select * from account where account.id = ?" 1]
+           (sql/fetch {} [:account 1]))))
+
+  (testing "basic join with select"
+    (is (= ["select * from todo join account on account.id = todo.account_id where account.id = ?" 1]
+           (sql/fetch {} [:account 1 :todo]))))
+
+  (testing "basic join with select and where clause"
+    (is (= ["select * from todo join account on account.id = todo.account_id where account.id = ? and todo.id = ?" 1 2]
+           (sql/fetch {} [:account 1 :todo 2]))))
+
+  (testing "three table fetch"
+    (is (= ["select * from tag join todo on todo.id = tag.todo_id join account on account.id = todo.account_id where account.id = ? and todo.id = ? and tag.id = ?" 1 2 3]
+           (sql/fetch {} [:account 1 :todo 2 :tag 3])))))
+
+
+(deftest fetch-joins-test
+  (testing "one join"
+    (is (= "join account on account.id = todo.account_id"
+           (sql/fetch-joins [:account :todo]))))
+
+  (testing "no joins"
+    (is (= "" (sql/fetch-joins [:account]))))
+
+  (testing "three joins"
+    (is (= "join todo on todo.id = tag.todo_id join account on account.id = todo.account_id"
+           (sql/fetch-joins [:account :todo :tag])))))
+
+
+(deftest from-test
+  (testing "from with nested map"
+    (is (= ["select * from account where id = ?" 1]
+           (sql/from {} {:account {:id 1}}))))
+
+  (testing "from with qualified keyword map"
+    (is (= ["select * from account where account.id = ?" 1]
+           (sql/from {} {:account/id 1}))))
+
+  (testing "from with nested map with vector where query"
+    (is (= ["select * from account where id in (?, ?, ?)" 1 2 3]
+           (sql/from {} {:account {:id [1 2 3]}})))))

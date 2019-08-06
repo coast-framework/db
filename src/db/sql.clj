@@ -24,6 +24,8 @@
       (every? qualified-ident? (keys val)))
     (-> val keys first namespace helper/sqlize)
 
+    (sequential? val) (table (first val))
+
     :else nil))
 
 
@@ -121,9 +123,7 @@
   (let [m (if (table-map? maps)
             (-> maps vals first)
             maps)
-        table (if (table-map? maps)
-                (table maps)
-                (table (first maps)))
+        table (table maps)
         columns (string/join ", " (columns (first m)))
         placeholders (string/join ", " (map #(format "(%s)" (->> (placeholders %) (string/join ", "))) m))
         values (mapcat values m)
@@ -278,94 +278,64 @@
   ; ([ctx nested-map]
   ;  (delete-all ctx (ffirst nested-map) (apply (partial merge-with (comp distinct helper/flat vector)) (-> nested-map vals first)))))
 
-;
-; (comment
-;   (delete nil :account ["id = ?" 1]) ; this only deletes one row with "delete from account where id (select id from account <clause> limit 1)"
-;   (delete nil {:account {:id 1 :name nil}})
-;
-;   (delete nil :account ["id = ? or id is null" 1])
-;   (delete nil {:account {:id 1 :name ["a" "b" nil nil] :a nil}})
-;
-;   ; this deletes multiple rows
-;   (delete-all nil :account ["id in (?, ?, ?)" 1 2 3]) ; or
-;   (delete-all nil {:account [{:id 1 :name "name 1"} {:id 2 :name nil}]})
-;
-;
-;   ; updates one row
-;   (coast/update db :account ["id = ?" 1])
-;   (coast/update db {:account {:id 1 :name nil}})
-;
-;   ; updates multiple rows
-;   (coast/update-all db :account ["id = ?" 1])
-;   (coast/update-all db {:account {:id 1 :name nil}})
-;
-;   ; one row
-;   (coast/insert db {:account {:id 1 :name nil}})
-;
-;   ; multi row
-;   (coast/insert-all db {:account [{:id 1 :name nil}
-;                                   {:id 2 :name nil}]})
-;
-;   ; query
-;   (coast/q db
-;     '[:select *
-;       :from account
-;       :where {:id ?id :name ?name :hello ?hello}
-;       :order :id :desc :name
-;       :limit 10
-;       :offset 1]
-;
-;     {:name nil
-;      :id 1
-;      :hello "h"}) ; => {:account [{:name nil :id 1}]
-;
-;   (coast/q db
-;     '[:select *
-;       :from account
-;       :join organizations tests
-;       :where [id like ?id]
-;              [name ?name]
-;              [hello ?hello]
-;       :order id desc name
-;       :limit 10
-;       :offset 1]
-;
-;     {:name nil
-;      :id 1
-;      :hello "h"})
-;
-;   (coast/q db
-;     '[:select *
-;       :from [:select id :from test :where test.name like ?test/name]
-;       :join organizations tests
-;       :where id like ?id :and
-;             name ?name :and
-;             hello ?hello
-;       :order id desc name
-;       :limit 10
-;       :offset 1]
-;
-;     {:name nil
-;      :id 1
-;      :hello "h"})
-;
-;   (string/join ","
-;     (map #(string/join " " %)(partition-all 2 [:id :desc :name])))
-;
-;   (helper/map-keys first
-;     (into {}
-;       (map vec
-;        (partition 2
-;         (partition-by keyword? [:id 'like "%hello%" :name '?name :hello '?hello])))))
-;
-;   ; Account.where(name: nil).delete_all
-;   ; (coast/delete-all :account {:name nil})
-;
-;   ; Account.find(1).delete
-;   ; (coast/fetch :account 1)
-;   ; (coast/fetch :account)
-;
-;   (coast/delete
-;    (coast/fetch :account 1))
-;
-;   (coast/fetch :account 1))
+
+(defn join [[left right]]
+  (format "join %s on %s.%s = %s.%s" (name left) (name left) "id" (name right) (str (name left) "_id")))
+
+
+(defn dup [num l]
+  (let [frst (first l)
+        lst (last l)]
+    (mapcat #(if (and (not= frst %)
+                      (not= lst %))
+               (repeat num %)
+               (list %))
+      l)))
+
+
+(defn fetch-joins [keywords]
+  (->> keywords
+       (dup 2)
+       (partition 2)
+       (map join)
+       (reverse)
+       (string/join " ")))
+
+
+(defn fetch [ctx path-vec]
+  (let [keywords (filter keyword? path-vec)
+        from (-> keywords last helper/sqlize)
+        joins (fetch-joins keywords)
+        ids (filter #(not (keyword? %)) path-vec)
+        where-clause (when (not (empty? ids))
+                       (->> (partition 2 path-vec)
+                            (mapv #(vector (keyword (-> % first name) "id") (second %)))
+                            (into {})))
+        where (when (not (empty? where-clause))
+                (where where-clause))
+        where-sql (first where)
+        params (rest where)]
+      (apply conj
+        [(string/join " "
+           (filter #(not (string/blank? %))
+             [(format "select * from %s" from)
+              joins
+              (when (some? where) (format "where %s" where-sql))]))]
+        params)))
+
+
+(defn from [ctx m]
+  (let [where (where (if (table-map? m)
+                       (-> m vals first)
+                       m))
+        table (table m)
+        where-sql (first where)
+        where-params (rest where)]
+    (apply conj
+      [(format "select * from %s where %s" table where-sql)]
+      where-params)))
+
+
+(defn q
+  ([ctx v params])
+  ([ctx v]))
