@@ -79,7 +79,9 @@ in that folder with a file named something like this `20190725281234_create_tabl
 
 I took the liberty of adding the `:null false` and `:unique true` bits.
 
-Connect to the database and run the connection:
+### Connections
+
+Create a connection pool and connect to the database
 
 ```clojure
 (def conn (db/connect (db/context :dev)))
