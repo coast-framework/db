@@ -15,10 +15,9 @@
            :test {:extra-paths ["test"]
                   :main-opts ["-m" "cognitect.test-runner"]
                   :extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                          :sha "5f2b5c2efb444df76fb5252102b33f542ebf7f58"}}}
+                                                          :sha "5f2b5c2efb444df76fb5252102b33f542ebf7f58"}
+                               org.xerial/sqlite-jdbc {:mvn/version "3.25.2"}}}
 
-           :watch {:extra-paths ["bin" "test"]
+           :watch {:extra-paths ["bin"]
                    :main-opts ["-m" "watch"]
-                   :extra-deps {clojure-watch {:mvn/version "0.1.14"}
-                                com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                           :sha "5f2b5c2efb444df76fb5252102b33f542ebf7f58"}}}}}
+                   :extra-deps {clojure-watch {:mvn/version "0.1.14"}}}}}
