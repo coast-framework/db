@@ -156,14 +156,14 @@ Or a more complex query
 Update that last one, oh and you don't need nested maps, qualified keywords work too
 
 ```clojure
-(db/update conn {:account/name "name3"} {:email "e@f.com"})
+(db/update conn {:account/name "name3"} {:email "e@f.com"}
 ; => ["update account set name = ? where email = ?", "name3", "e@f.com"]
 ```
 
 Delete the last two records from before
 
 ```clojure
-(db/delete-all conn {:account/email ["e@f.com" "c@d.com"]})
+(db/delete-all conn {:account [{:email "e@f.com"} {:email "c@d.com"}]})
 ; => ["delete from account where email in (?, ?)", "e@f.com", "c@d.com"]
 ```
 
