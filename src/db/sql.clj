@@ -141,35 +141,29 @@
    and a where clause in the form of a map or a sql vec"
   ([ctx m where-clause all?]
    (let [table (table m)
-          columns (columns m)
-          placeholders (placeholders m)
-          values (values m)
-          where-clause (where where-clause)
-          where-sql (first where-clause)
-          where-values (rest where-clause)
-          returning (if (postgres? ctx)
-                      " returning *"
-                      "")
-          set-columns (string/join ", "
-                        (map
-                          #(string/join " = " %)
-                          (partition 2
-                            (interleave columns placeholders))))
-          where-in (if all?
-                     where-sql
-                     (format "id in (select id from %s where %s limit 1)" table where-sql))]
+         columns (columns m)
+         placeholders (placeholders m)
+         values (values m)
+         where-clause (where where-clause)
+         where-sql (first where-clause)
+         where-values (rest where-clause)
+         returning (if (postgres? ctx)
+                     " returning *"
+                     "")
+         set-columns (string/join ", "
+                       (map
+                         #(string/join " = " %)
+                         (partition 2
+                           (interleave columns placeholders))))
+         where-in (if all?
+                    where-sql
+                    (format "id in (select id from %s where %s limit 1)" table where-sql))]
       (apply conj
         [(format "update %s set %s where %s%s"
            table set-columns where-in returning)]
         (concat values where-values))))
   ([ctx m where-clause]
    (update ctx m where-clause false)))
-
-
-(comment
-  (update* {} {:account {:a "a" :b "b"}} ["id = ?" 1])
-  (update* {} {:account {:a "a" :b "b"}} {:id 1})
-  (update* {} #:account{:a "a" :b "b"} {:id 1}))
 
 
 (defn update-all [ctx m where-clause]
@@ -180,16 +174,27 @@
   (update-all {} {:account {:a "a" :b "b"}} {:id [1 2 3] :name ["hello" nil]}))
 
 
-(defn upsert [ctx m & {:as options}]
+(defn upsert-params [row {:keys [unique-by]}]
+    (select-keys (params row) unique-by))
+
+
+(defn upsert-all-params [rows {:keys [unique-by]}]
+  (let [rows (if (table-map? rows) (-> rows vals first) rows)
+        rows (map #(select-keys % unique-by) rows)]
+    (apply (partial merge-with (comp distinct helper/flat vector)) rows)))
+
+
+(defn upsert [ctx m options]
   (let [table (table m)
         columns (columns m)
         columns-sql (string/join ", " columns)
         placeholders (string/join ", " (placeholders m))
         values (values m)
-        where-clause (where (select-keys (get m (keyword table) m) (helper/vectorize (:unique-by options))))
+        unique-keys (:unique-by options)
+        where-clause (where (upsert-params m options))
         where-sql (first where-clause)
         where-values (rest where-clause)
-        conflict (string/join "," (map helper/sqlize (helper/vectorize (:unique-by options))))
+        conflict (string/join "," (map helper/sqlize unique-keys))
         set-columns (string/join ", "
                       (map
                         #(string/join " = " %)
@@ -205,25 +210,16 @@
      (concat values where-values))))
 
 
-(comment
-
-  (upsert {:adapter "sqlite"}
-    {:account {:email "email" :password "password" :id 1}}
-    :unique-by :id))
-
-
-(defn upsert-all [ctx maps & {:as options}]
-  (let [m (if (table-map? maps)
-            (-> maps vals first)
-            maps)
-        table (if (table-map? maps)
-                (table maps)
-                (table (first maps)))
-        columns (columns (first m))
+(defn upsert-all [ctx maps options]
+  (let [rows (if (table-map? maps)
+               (-> maps vals first)
+               maps)
+        table (table maps)
+        columns (columns (first rows))
         columns-sql (string/join ", " columns)
-        placeholders (string/join ", " (map #(format "(%s)" (->> (placeholders %) (string/join ", "))) m))
-        values (mapcat values m)
-        conflict (string/join "," (map helper/sqlize (helper/vectorize (:unique-by options))))
+        placeholders (string/join ", " (map #(format "(%s)" (->> (placeholders %) (string/join ", "))) rows))
+        values (mapcat values rows)
+        conflict (string/join "," (map helper/sqlize (:unique-by options)))
         set-columns (string/join ", "
                       (map
                         #(string/join " = " %)
@@ -237,18 +233,6 @@
         table columns-sql placeholders conflict set-columns returning)]
      values)))
 
-(comment
-  (upsert-all {:adapter "sqlite"}
-    {:account [{:email "email" :password "password" :id 1}
-               {:email "email1" :password "password1" :id 2}
-               {:email "email2" :password "password2" :id 3}]}
-    :unique-by [:id])
-
-  (upsert-all {:adapter "sqlite"}
-    [#:account{:email "email" :password "password" :id 1}
-     #:account{:email "email1" :password "password1" :id 2}
-     #:account{:email "email2" :password "password2" :id 3}]
-    :unique-by [:id]))
 
 (defn delete
   "Takes a db context, a table name, a where clause and a bool and returns a java.jdbc delete statement that deletes one or many rows depending on truthiness of one?"
@@ -271,12 +255,15 @@
    (delete ctx where-clause true)))
 
 
+(defn delete-all-params [rows]
+  (let [rows (if (table-map? rows) (-> rows vals first) rows)]
+    (apply (partial merge-with (comp distinct helper/flat vector)) rows)))
+
+
 (defn delete-all
   "Takes a db context, a table name, and a where clause and returns a java.jdbc delete statement that deletes many rows"
   [ctx where-clause]
-  (delete ctx where-clause false))
-  ; ([ctx nested-map]
-  ;  (delete-all ctx (ffirst nested-map) (apply (partial merge-with (comp distinct helper/flat vector)) (-> nested-map vals first)))))
+  (delete ctx {(table where-clause) (delete-all-params where-clause)} false))
 
 
 (defn join [[left right]]

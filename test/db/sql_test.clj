@@ -64,7 +64,11 @@
 
   (testing "update with a sql-vec where clause"
     (is (= ["update account set name = ? where name = ? or name = ?" "name1" "name2" "name3"]
-           (sql/update-all {} {:account/name "name1"} ["name = ? or name = ?" "name2" "name3"])))))
+           (sql/update-all {} {:account/name "name1"} ["name = ? or name = ?" "name2" "name3"]))))
+
+  (testing "update-all with a nested map"
+    (is (= ["update account set a = ?, b = ? where id in (?, ?, ?)" "a" "b" 1 2 3]
+           (sql/update-all {} {:account {:a "a" :b "b"}} {:id [1 2 3]})))))
 
 
 (deftest delete-test
@@ -72,21 +76,24 @@
     (is (= ["delete from account where id in (select id from account where account.name = ? limit 1)" "name"]
            (sql/delete {} {:account/name "name"}))))
 
-  (testing "delete-all with a qualified keyword map"
-    (is (= ["delete from account where account.a = ? and account.b = ?" "a" "b"]
-           (sql/delete-all {} #:account{:a "a" :b "b"}))))
-
   (testing "delete with a nested map and complex where clause"
     (is (= ["delete from account where id in (select id from account where id = ? and name is null limit 1)" 1]
            (sql/delete {} {:account {:id 1 :name nil}}))))
 
   (testing "delete with a nested map and nil combo where clause"
     (is (= ["delete from account where id in (select id from account where id = ? and (name in (?) or name is null) limit 1)" 1 "name"]
-           (sql/delete {} {:account {:id 1 :name ["name" nil]}}))))
+           (sql/delete {} {:account {:id 1 :name ["name" nil]}})))))
+
+
+(deftest delete-all-test
+  (testing "delete-all with a qualified keyword map"
+    (is (= ["delete from account where account.a = ? and account.b = ?" "a" "b"]
+           (sql/delete-all {} [#:account{:a "a" :b "b"}]))))
+
 
   (testing "delete-all with a complex where clause"
     (is (= ["delete from account where account.id = ? and (account.name in (?) or account.name is null)" 1 "name"]
-           (sql/delete-all {} #:account{:id 1 :name [nil "name"]})))))
+           (sql/delete-all {} [#:account{:id 1 :name nil} #:account{:name "name"}])))))
 
 
 (deftest fetch-test
@@ -136,3 +143,46 @@
   (testing "from with nested map with vector where query"
     (is (= ["select * from account where id in (?, ?, ?)" 1 2 3]
            (sql/from {} {:account {:id [1 2 3]}})))))
+
+
+(deftest upsert-test
+  (testing "upsert with nested map"
+    (is (= ["insert into account (name, email, id) values (?, ?, ?) on conflict(id) do update set name = excluded.name, email = excluded.email, id = excluded.id where id in (select id from account where id = ? limit 1)" "name" "email" 1 1]
+           (sql/upsert {} {:account {:name "name" :email "email" :id 1}}
+             {:unique-by [:id]}))))
+
+  (testing "upsert with qualified keyword map"
+    (is (= ["insert into account (name, email, id) values (?, ?, ?) on conflict(account.id) do update set name = excluded.name, email = excluded.email, id = excluded.id where id in (select id from account where account.id = ? limit 1)" "name" "email" 1 1]
+           (sql/upsert {} #:account{:name "name" :email "email" :id 1}
+             {:unique-by [:account/id]})))))
+
+(deftest upsert-all-test
+  (testing "upsert-all with nested map"
+    (is (= ["insert into account (name, email, id) values (?, ?, ?), (?, ?, ?) on conflict(id) do update set name = excluded.name, email = excluded.email, id = excluded.id" "name" "email" 1 "name2" "email2" 2]
+           (sql/upsert-all {} {:account [{:name "name" :email "email" :id 1}
+                                         {:name "name2" :email "email2" :id 2}]}
+             {:unique-by [:id]}))))
+
+  (testing "upsert-all with qualified keyword map"
+    (is (= ["insert into account (name, email, id) values (?, ?, ?), (?, ?, ?) on conflict(account.id) do update set name = excluded.name, email = excluded.email, id = excluded.id" "name" "email" 1 "name2" "email2" 2]
+           (sql/upsert-all {} [#:account{:name "name" :email "email" :id 1}
+                               #:account{:name "name2" :email "email2" :id 2}]
+             {:unique-by [:account/id]}))))
+
+  (testing "upsert-all with qualified keyword map with postgres"
+    (is (= ["insert into account (name, email, id) values (?, ?, ?), (?, ?, ?) on conflict(account.id) do update set name = excluded.name, email = excluded.email, id = excluded.id returning *" "name" "email" 1 "name2" "email2" 2]
+           (sql/upsert-all {:adapter "postgres"}
+             [#:account{:name "name" :email "email" :id 1}
+              #:account{:name "name2" :email "email2" :id 2}]
+             {:unique-by [:account/id]})))))
+
+(deftest upsert-all-params-test
+  (testing "upsert-all-params with nested map"
+    (is (= {:id [1 2]} (sql/upsert-all-params {:account [{:name "name" :email "email" :id 1}
+                                                         {:name "name2" :email "email2" :id 2}]}
+                         {:unique-by [:id]}))))
+
+  (testing "upsert-all-params with qualified keyword maps"
+    (is (= {:account/id [1 2]} (sql/upsert-all-params [#:account{:name "name" :email "email" :id 1}
+                                                       #:account{:name "name2" :email "email2" :id 2}]
+                                 {:unique-by [:account/id]})))))
