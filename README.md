@@ -1,6 +1,8 @@
 # db
 Clojure SQL Superpowers
 
+__Warning this library is a work in progress__
+
 ## Install
 
 Add this thing to your `deps.edn` file and your sql lib of choice
