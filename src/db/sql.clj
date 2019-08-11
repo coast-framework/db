@@ -1,6 +1,7 @@
 (ns db.sql
   (:require [helper.core :as helper]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [clojure.walk :as walk])
   (:refer-clojure :exclude [update]))
 
 
@@ -323,6 +324,37 @@
       where-params)))
 
 
+(defn order-by? [val]
+  (and (ident? val)
+    (= "order-by" (name val))))
+
+
+(defn group-by? [val]
+  (and (ident? val)
+    (= "group-by" (name val))))
+
+
+(defn to-sql [val]
+  (cond
+    (order-by? val) "order by"
+    (group-by? val) "group by"
+    (ident? val) (-> val helper/sqlize)
+    (list? val) (->> (map to-sql val)
+                     (string/join " ")
+                     (format "(%s)"))
+    :else val))
+
+(def q-re #"\?([\w\d-]+)")
+
 (defn q
-  ([ctx v params])
-  ([ctx v]))
+  ([ctx v m]
+   (let [sql (->> (walk/postwalk to-sql v)
+                  (string/join " "))
+         values (->> (re-seq q-re sql)
+                     (map last)
+                     (map keyword)
+                     (map (partial get m)))
+         sql (string/replace sql q-re "?")]
+       (concat [sql] values)))
+  ([ctx v]
+   (q ctx v {})))

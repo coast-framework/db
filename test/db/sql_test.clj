@@ -186,3 +186,25 @@
     (is (= {:account/id [1 2]} (sql/upsert-all-params [#:account{:name "name" :email "email" :id 1}
                                                        #:account{:name "name2" :email "email2" :id 2}]
                                  {:unique-by [:account/id]})))))
+
+
+(deftest q-test
+  (testing "q with a valid sql statement with no params"
+    (is (= ["select * from accounts order by created_at desc"]
+           (sql/q {} '[:select * :from accounts :order-by created-at desc]))))
+
+  (testing "q with a valid sql statement with a param"
+    (is (= ["select * from accounts where email like ? order by created_at desc" "%@aol.com"]
+           (sql/q {} '[:select *
+                       :from accounts
+                       :where email like ?email
+                       :order-by created-at desc]
+              {:email "%@aol.com"}))))
+
+  (testing "q with a qualified keyword"
+    (is (= ["select * from accounts where accounts.email like ? order by created_at desc" "%@aol.com"]
+           (sql/q {} '[:select *
+                       :from accounts
+                       :where accounts/email like ?email
+                       :order-by created-at desc]
+              {:email "%@aol.com"})))))
