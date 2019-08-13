@@ -133,16 +133,16 @@
 
 (deftest from-test
   (testing "from with nested map"
-    (is (= ["select * from account where id = ?" 1]
-           (sql/from {} {:account {:id 1}}))))
+    (is (= ["select * from account where account.id = ?" 1]
+           (sql/from {:account {:id 1}}))))
 
   (testing "from with qualified keyword map"
     (is (= ["select * from account where account.id = ?" 1]
-           (sql/from {} {:account/id 1}))))
+           (sql/from {:account/id 1}))))
 
   (testing "from with nested map with vector where query"
-    (is (= ["select * from account where id in (?, ?, ?)" 1 2 3]
-           (sql/from {} {:account {:id [1 2 3]}})))))
+    (is (= ["select * from account where account.id in (?, ?, ?)" 1 2 3]
+           (sql/from {:account {:id [1 2 3]}})))))
 
 
 (deftest upsert-test

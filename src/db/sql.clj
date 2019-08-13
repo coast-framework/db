@@ -16,6 +16,12 @@
       (coll? first-val))))
 
 
+(defn single-table-map? [m]
+  (and (map? m)
+    (let [first-val (first (vals m))]
+      (map? first-val))))
+
+
 (defn table [val]
   (cond
     (keyword? val) (helper/sqlize val)
@@ -87,11 +93,16 @@
     :else (format "%s = ?" (helper/sqlize key))))
 
 
+(defn qualify-table-map [m]
+  (helper/map-keys #(keyword (-> m ffirst name) (name %)) (-> m vals first)))
+
+
 (defn where
   "Takes a map or a vector and returns the where portion of a sql vec"
   [val]
   (cond
     (vector? val) val
+    (single-table-map? val) (where (qualify-table-map val))
     (map? val) (let [pairs (map identity val)
                      columns (->> (map op pairs)
                                   (filter (comp not string/blank?)))
@@ -313,10 +324,8 @@
         params)))
 
 
-(defn from [ctx m]
-  (let [where (where (if (table-map? m)
-                       (-> m vals first)
-                       m))
+(defn from [m]
+  (let [where (where m)
         table (table m)
         where-sql (first where)
         where-params (rest where)]
