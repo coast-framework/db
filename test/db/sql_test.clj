@@ -207,4 +207,47 @@
                        :from accounts
                        :where accounts/email like ?email
                        :order-by created-at desc]
-              {:email "%@aol.com"})))))
+              {:email "%@aol.com"}))))
+
+  (testing "q with two order by columns"
+    (is (= ["select * from accounts order by created_at desc, updated_at desc"]
+           (sql/q {} '[:select *
+                       :from accounts
+                       :order-by created-at desc updated-at desc]))))
+
+  (testing "q with two select columns"
+    (is (= ["select id, name from accounts order by created_at desc, updated_at asc"]
+           (sql/q {} '[:select id name
+                       :from accounts
+                       :order-by created-at desc updated-at]))))
+
+  (testing "q with a sql-vec in the where clause"
+    (is (= ["select * from account where id in (?, ?, ?)" 1 2 3]
+           (sql/q {} '[:select *
+                       :from account
+                       :where ["id in (?, ?, ?)" 1 2 3]]))))
+
+  (testing "q with a vector as an ?ident value"
+    (is (= ["select * from account where id in (?, ?, ?)" 1 2 3]
+           (sql/q {} '[:select *
+                       :from account
+                       :where id in ?ids]
+             {:ids [1 2 3]}))))
+
+  (testing "q with limit and offset"
+    (is (= ["select * from account order by created_at desc offset 0 limit 10"]
+           (sql/q {} '[:select *
+                       :from account
+                       :order-by created-at desc
+                       :limit 10
+                       :offset 0]))))
+
+  (testing "q with group by and count(*)"
+    (is (= ["select count(todo.id) as todos, todo.account_id from todo group by todo.account_id"]
+           (sql/q {} '[:select (count todo/id) :as todos todo/account_id
+                       :from todo
+                       :group-by todo/account_id]))))
+
+  (testing "q with a sql vec"
+    (is (= ["select * from account"]
+           (sql/q {} '["select * from account"])))))

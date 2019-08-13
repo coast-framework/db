@@ -19,7 +19,11 @@
     (is (= (q/sql-map nil) nil)))
 
   (testing "sql-map with empty vec"
-    (is (= (q/sql-map []) {}))))
+    (is (= (q/sql-map []) {})))
+
+  (testing "sql-map with select alias"
+    (is (= (q/sql-map '[:select (count *) :as all])
+           {:select '[(count *) :as all]}))))
 
 
 (deftest select-test
@@ -33,7 +37,11 @@
     (is (= (q/select '[(count *) name]) {:select "select count(*), name"})))
 
   (testing "select with an aggregate function with args"
-    (is (= (q/select '[(group-concat id, name), name]) {:select "select group_concat(id, name), name"}))))
+    (is (= (q/select '[(group-concat id, name), name]) {:select "select group_concat(id, name), name"})))
+
+  (testing "select with alias"
+    (is (= (q/select '[(count id) :as todos account-id])
+           {:select "select count(id) as todos, account_id"}))))
 
 
 (deftest from-test
@@ -50,3 +58,39 @@
 
   (testing "left-outer-join with two tables"
     (is (= (q/join '{:query {:from account :join [todo tag]}} "left outer join" '[todo tag]) {:left-outer-join "left outer join todo on todo.account_id = account.id left outer join tag on tag.account_id = account.id"}))))
+
+
+(deftest where-test
+  (testing "where with ?idents"
+    (is (= (q/where {:params {:id 1 :name "name"}}
+             '[id = ?id :and name = ?name])
+           {:where "where id = ? and name = ?"
+            :args '(1 "name")})))
+
+  (testing "where with values"
+    (is (= (q/where {:params {:id 1 :name "name"}}
+             '[id = 2 :or name = "name2"])
+           {:where "where id = ? or name = ?"
+            :args '(2 "name2")})))
+
+
+  (testing "where with a mix of ?idents and values"
+    (is (= (q/where {:params {:id 1 :name "name" :val3 "time@to.party"}}
+             '[id = 2 :or name = "name2" :or email = ?val3])
+           {:where "where id = ? or name = ? or email = ?"
+            :args '(2 "name2" "time@to.party")})))
+
+  (testing "where missing ?idents"
+    (is (= (q/where {} '[id = ?id])
+           {:where "where id = ?"
+            :args '()})))
+
+  (testing "where with sql-vec"
+    (is (= (q/where {} [["(id = ? and name = ?) or name is null" 1 "name"]])
+           {:where "where (id = ? and name = ?) or name is null"
+            :args '(1 "name")})))
+
+  (testing "where with a vector of values"
+    (is (= (q/where {:params {:ids [1 2 3]}} '[id in ?ids])
+           {:where "where id in (?, ?, ?)"
+            :args '(1 2 3)}))))

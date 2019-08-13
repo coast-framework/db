@@ -39,9 +39,12 @@
 
 
 (defn select [v]
-  {:select (->> (map select-val v)
-                (string/join ", ")
-                (format "select %s"))})
+  {:select
+   (string/replace
+     (->> (map select-val v)
+          (string/join ", ")
+          (format "select %s"))
+     #",\sas,\s" " as ")})
 
 
 (defn from [v]
@@ -60,6 +63,72 @@
                                                        (string/join " "))}))
 
 
+(defn q-ident? [val]
+  (and (ident? val)
+    (-> val name (string/starts-with? "?"))))
+
+
+(defn name-or-value [val]
+  (cond
+    (q-ident? val) (-> val name (string/replace #"\?" "") keyword)
+    (ident? val) nil
+    :else val))
+
+
+(defn where-args [{:keys [params]} v]
+  (filter #(and (some? %) (not (ident? %)))
+    (flatten
+      (map #(get params (name-or-value %) (name-or-value %))
+        v))))
+
+
+(defn where [ctx v]
+  (if (vector? (first v))
+    {:where (str "where " (ffirst v))
+     :args (rest (first v))}
+    (let [sql (string/join " "
+                (map #(cond
+                        (and (q-ident? %)
+                          (sequential?
+                           (get (:params ctx) (name-or-value %))))
+                        (format "(%s)"
+                          (string/join ", "
+                           (map (fn [_] "?") (get (:params ctx) (name-or-value %)))))
+
+                        (q-ident? %) "?"
+                        (ident? %) (helper/sqlize %)
+                        :else "?")
+                  v))
+          args (where-args ctx v)]
+      {:where (str "where " sql)
+       :args args})))
+
+
+(defn limit [[i]]
+  (when (pos-int? i)
+    {:limit (str "limit " i)}))
+
+
+(defn offset [[i]]
+  (when (not (neg-int? i)) ; need to handle zero
+    {:offset (str "offset " i)}))
+
+
+(defn group [v]
+  {:group-by (str "group by " (->> (map helper/sqlize v)
+                                   (string/join ", ")))})
+
+
+(defn order [v]
+  {:order-by (str "order by " (->> (partition-all 2 v)
+                                   (mapv vec)
+                                   (mapv #(if (= 1 (count %))
+                                            (conj % 'asc)
+                                            %))
+                                   (mapv #(str (helper/sqlize (first %)) " " (name (second %))))
+                                   (string/join ", ")))})
+
+
 (defn sql-part [ctx [k v]]
   (condp = k
     :select (select v)
@@ -73,17 +142,32 @@
     :full-join (join ctx "full join" v)
     :left-outer-join (join ctx "left outer join" v)
     :right-outer-join (join ctx "right outer join" v)
-    ; :where (where v)
-    ; :order (order v)
-    ; :limit (limit v)
-    ; :offset (offset v)
-    ; :group (group v)
-    ; :group-by (group v)
-    ; :delete (delete v)
-    ; :values (values v)
-    ; :insert (insert v)
-    ; :update (update v)
-    ; :set (update-set v)
-    ; :do-update-set (do-update-set v)
-    ; :on-conflict (on-conflict v)
+    :where (where ctx v)
+    :order (order v)
+    :order-by (order v)
+    :limit (limit v)
+    :offset (offset v)
+    :group (group v)
+    :group-by (group v)
     nil))
+
+
+(defn sql-vec
+  "Generates a jdbc sql vector from an ident sql vector"
+  [ctx v params]
+  (let [ctx (assoc ctx :query v :params params)
+        m (->> (sql-map v)
+               (map #(sql-part ctx %))
+               (apply merge))
+        {:keys [select join left-join right-join
+                left-outer-join right-outer-join full-join
+                full-join cross-join full-outer-join
+                where args order-by offset
+                limit group-by from]} m
+        sql (->> (filter some? [select from
+                                join left-join right-join
+                                left-outer-join right-outer-join
+                                full-join cross-join full-outer-join
+                                where group-by order-by offset limit])
+                 (string/join " "))]
+    (apply conj [sql] args)))
