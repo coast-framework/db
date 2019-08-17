@@ -1,6 +1,7 @@
 (ns db.q
   (:require [helper.core :as helper]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [db.pull :as pull]))
 
 
 (defn op? [val]
@@ -133,7 +134,7 @@
   (condp = k
     :select (select v)
     :from (from v)
-    ; :pull {:pull v}
+    :pull {:pull v}
     :join (join ctx "join" v)
     :cross-join (join ctx "cross join" v)
     :left-join (join ctx "left join" v)
@@ -157,8 +158,11 @@
   [ctx v params]
   (let [ctx (assoc ctx :query v :params params)
         m (->> (sql-map v)
+               (pull/fmt-pull)
+               (pull/expand-pull-asterisk ctx {})
                (map #(sql-part ctx %))
-               (apply merge))
+               (apply merge)
+               (pull/pull ctx))
         {:keys [select join left-join right-join
                 left-outer-join right-outer-join full-join
                 full-join cross-join full-outer-join
