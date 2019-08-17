@@ -80,7 +80,7 @@
 
 
 (defn references [col-name & {:as m}]
-  (col :integer col-name (merge {:null false :references (str (helper/sqlize col-name) "(id)") :index true :on-delete "cascade"} m)))
+  (col :integer (str (name col-name) "-id") (merge {:null false :references (str (helper/sqlize col-name) "(id)") :index true :on-delete "cascade"} m)))
 
 
 (defn drop-column
@@ -109,7 +109,7 @@
         "add constraint"
         (or (helper/sqlize fk-name) (str from "_" to "_fk"))
         "foreign key"
-        (str "(" (or (helper/sqlize col) to) ")")
+        (str "(" (or (helper/sqlize (str col "_id") to) ")"))
         "references"
         to
         (str "(" (or (helper/sqlize pk) "id") ")")
@@ -160,7 +160,7 @@
       ["alter table"
        (helper/sqlize table-name)
        "add column"
-       (helper/sqlize ref-name)
+       (helper/sqlize (or (:column m) (str ref-name "_id")))
        (or (-> m :type helper/sqlize) "integer")
        "references"
        (helper/sqlize ref-name)
@@ -221,8 +221,10 @@
 
 
 (defn reference-col [s]
-  (-> (re-find #"references (\w+)" s)
-      (last)))
+  (let [ref-col (-> (re-find #"references (\w+)" s)
+                    (last))]
+    (when (some? ref-col)
+      (str ref-col "_id"))))
 
 
 (defn create-table

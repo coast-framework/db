@@ -7,19 +7,19 @@
         table-name (or table-name (helper/singular has-many))
         joins (if (some? through)
                 [{:table (helper/singular through)
-                  :left (str (helper/singular through) "." parent)
+                  :left (str (helper/singular through) "." (str parent "_id"))
                   :right (str parent "." primary-key)}
                  {:table table-name
                   :left (str table-name ".id")
-                  :right (str (helper/singular through) "." table-name)}]
+                  :right (str (helper/singular through) "." (str table-name "_id"))}]
                 [{:table table-name
-                  :left (str table-name "." (name (or foreign-key parent)))
+                  :left (str table-name "." (name (or foreign-key (str parent "_id"))))
                   :right (str parent "." primary-key)}])]
     {(keyword parent has-many)
      {:joins joins
       :has-many (keyword (helper/singular has-many))
       :from table-name
-      :col (str table-name "." (name (or foreign-key parent)))}}))
+      :col (str table-name "." (name (or foreign-key (str parent "_id"))))}}))
 
 
 (defn- belongs-to-map [parent m]
@@ -27,7 +27,7 @@
     {(keyword parent belongs-to)
      {:joins [{:table belongs-to
                :left (str belongs-to "." primary-key)
-               :right (str parent "." (or foreign-key belongs-to))}]
+               :right (str parent "." (or foreign-key (str belongs-to "_id")))}]
       :belongs-to (keyword belongs-to)
       :from belongs-to
       :col (str belongs-to "." primary-key)}}))
