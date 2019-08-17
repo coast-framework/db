@@ -19,7 +19,7 @@
                   (edn/read-string {:readers {'env env/env}})
                   (mapv (fn [[k v]] [k v]))
                   (into {}))]
-      (get ctx (or db-env :dev))))
+      (get ctx (keyword (or db-env :dev)))))
   ([]
    (context :dev)))
 
