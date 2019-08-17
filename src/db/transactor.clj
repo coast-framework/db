@@ -86,7 +86,7 @@
     (jdbc/with-db-transaction [conn ctx]
       (execute conn (sql/upsert ctx row unique-by))
       (first
-        (query conn (sql/from {(sql/table row) (sql/where (sql/upsert-params row unique-by))}))))))
+        (query conn (sql/from {(sql/table row) (sql/upsert-params row unique-by)}))))))
 
 
 (defn upsert-all [ctx rows & {:as unique-by}]
@@ -95,7 +95,7 @@
       (sql/upsert-all ctx rows unique-by))
     (jdbc/with-db-transaction [conn ctx]
       (execute conn (sql/upsert-all ctx rows unique-by))
-      (query conn (sql/from {(sql/table rows) (sql/where (sql/upsert-all-params rows unique-by))})))))
+      (query conn (sql/from {(sql/table rows) (sql/upsert-all-params rows unique-by)})))))
 
 
 (defn delete [ctx where]

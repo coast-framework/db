@@ -187,6 +187,15 @@
                                                        #:account{:name "name2" :email "email2" :id 2}]
                                  {:unique-by [:account/id]})))))
 
+(deftest upsert-params-test
+  (testing "upsert-params with nested map"
+    (is (= {:id 1} (sql/upsert-params {:account {:name "name" :email "email" :id 1}}
+                     {:unique-by [:id]}))))
+
+  (testing "upsert-params with qualified keyword map"
+    (is (= {:account/id 1} (sql/upsert-params #:account{:name "name" :email "email" :id 1}
+                             {:unique-by [:account/id]})))))
+
 
 (deftest q-test
   (testing "q with a valid sql statement with no params"
