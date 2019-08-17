@@ -302,36 +302,58 @@
        (string/join " ")))
 
 
-(defn fetch [ctx path-vec]
-  (let [keywords (filter keyword? path-vec)
-        from (-> keywords last helper/sqlize)
-        joins (fetch-joins keywords)
-        ids (filter #(not (keyword? %)) path-vec)
-        where-clause (when (not (empty? ids))
-                       (->> (partition 2 path-vec)
-                            (mapv #(vector (keyword (-> % first name) "id") (second %)))
-                            (into {})))
-        where (when (not (empty? where-clause))
-                (where where-clause))
-        where-sql (first where)
-        params (rest where)]
-      (apply conj
-        [(string/join " "
-           (filter #(not (string/blank? %))
-             [(format "select * from %s" from)
-              joins
-              (when (some? where) (format "where %s" where-sql))]))]
-        params)))
+(defn fetch
+  ([ctx path-vec options]
+   (let [keywords (filter keyword? path-vec)
+         from (-> keywords last helper/sqlize)
+         joins (fetch-joins keywords)
+         ids (filter #(not (keyword? %)) path-vec)
+         where-clause (when (not (empty? ids))
+                        (->> (partition 2 path-vec)
+                             (mapv #(vector (keyword (-> % first name) "id") (second %)))
+                             (into {})))
+         where (when (not (empty? where-clause))
+                 (where where-clause))
+         where-sql (first where)
+         params (rest where)
+         {:keys [limit offset]} options]
+       (apply conj
+         [(string/join " "
+            (filter #(not (string/blank? %))
+              [(format "select * from %s" from)
+               joins
+               (when (some? where) (format "where %s" where-sql))
+               (if (pos-int? limit)
+                 (str "limit " limit)
+                 "")
+               (if (and (some? offset)
+                    (or (zero? offset) (pos-int? offset)))
+                 (str "offset " offset)
+                 "")]))]
+         params)))
+  ([ctx path-vec]
+   (fetch ctx path-vec {})))
 
 
-(defn from [m]
-  (let [where (where m)
-        table (table m)
-        where-sql (first where)
-        where-params (rest where)]
-    (apply conj
-      [(format "select * from %s where %s" table where-sql)]
-      where-params)))
+(defn from
+  ([m options]
+   (let [where (where m)
+         table (table m)
+         where-sql (first where)
+         where-params (rest where)
+         {:keys [limit offset]} options
+         limit (if (pos-int? limit)
+                 (str " limit " limit)
+                 "")
+         offset (if (and (some? offset)
+                      (or (zero? offset) (pos-int? offset)))
+                  (str " offset " offset)
+                  "")]
+     (apply conj
+       [(format "select * from %s where %s%s%s" table where-sql limit offset)]
+       where-params)))
+  ([m]
+   (from m {})))
 
 
 (defn q
@@ -343,3 +365,12 @@
      (db.q/sql-vec ctx v m)))
   ([ctx v]
    (q ctx v {})))
+
+
+(defn pull
+  [ctx v m]
+  (db.q/sql-vec ctx [:pull v
+                     :from (-> (filter qualified-ident? v)
+                               (first)
+                               (namespace))
+                     :where (where m)]))
