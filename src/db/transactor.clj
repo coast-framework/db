@@ -57,7 +57,7 @@
             ids (take num-rows (range id 0 -1))
             table (sql/table rows)]
         (query conn
-          (sql/from ctx {table {:id ids}}))))))
+          (sql/from {table {:id ids}}))))))
 
 
 (defn update [ctx row where]
@@ -67,7 +67,7 @@
     (jdbc/with-db-transaction [conn ctx]
       (execute conn (sql/update ctx row where))
       (first
-        (query conn (sql/from ctx {(sql/table row) where}))))))
+        (query conn (sql/from {(sql/table row) where}))))))
 
 
 (defn update-all [ctx rows where]
@@ -76,7 +76,7 @@
       (sql/update-all ctx rows where))
     (jdbc/with-db-transaction [conn ctx]
       (execute conn (sql/update-all ctx rows where))
-      (query conn (sql/from ctx {(sql/table rows) where})))))
+      (query conn (sql/from {(sql/table rows) where})))))
 
 
 (defn upsert [ctx row & {:as unique-by}]
@@ -86,7 +86,7 @@
     (jdbc/with-db-transaction [conn ctx]
       (execute conn (sql/upsert ctx row unique-by))
       (first
-        (query conn (sql/from ctx {(sql/table row) (sql/where (sql/upsert-params row unique-by))}))))))
+        (query conn (sql/from {(sql/table row) (sql/where (sql/upsert-params row unique-by))}))))))
 
 
 (defn upsert-all [ctx rows & {:as unique-by}]
@@ -95,7 +95,7 @@
       (sql/upsert-all ctx rows unique-by))
     (jdbc/with-db-transaction [conn ctx]
       (execute conn (sql/upsert-all ctx rows unique-by))
-      (query conn (sql/from ctx {(sql/table rows) (sql/where (sql/upsert-all-params rows unique-by))})))))
+      (query conn (sql/from {(sql/table rows) (sql/where (sql/upsert-all-params rows unique-by))})))))
 
 
 (defn delete [ctx where]
@@ -104,7 +104,7 @@
       (sql/delete ctx where))
     (jdbc/with-db-transaction [conn ctx]
       (let [deleted (first
-                     (query conn (sql/from ctx where)))]
+                     (query conn (sql/from where)))]
         (execute conn (sql/delete ctx where))
         deleted))))
 
@@ -114,21 +114,24 @@
     (execute ctx
       (sql/delete-all ctx where))
     (jdbc/with-db-transaction [conn ctx]
-      (let [deleted (query conn (sql/from ctx {(sql/table where) (sql/delete-all-params where)}))]
+      (let [deleted (query conn (sql/from {(sql/table where) (sql/delete-all-params where)}))]
         (execute conn (sql/delete-all ctx where))
         deleted))))
 
 
 (defn fetch
   [ctx path-vec & {:as options}]
-  (query ctx
-    (sql/fetch ctx path-vec options)))
+  (let [rows (query ctx
+               (sql/fetch ctx path-vec options))]
+    (if (keyword? (last path-vec))
+      rows
+      (first rows))))
 
 
 (defn from
   [ctx m & {:as options}]
   (query ctx
-    (sql/from ctx m options)))
+    (sql/from m options)))
 
 
 (defn q
