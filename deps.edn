@@ -1,14 +1,9 @@
 {:paths ["src"]
 
- :deps {coast-framework/helper {:git/url "https://github.com/coast-framework/helper"
-                                :sha "04109855b5d7a7725c84a55eee4c18b6f9281cfa"}
-        coast-framework/env {:git/url "https://github.com/coast-framework/env"
-                             :sha "552785ddaa43ba3652a62df70576423890e50d63"}
-        coast-framework/time {:git/url "https://github.com/coast-framework/time"
-                              :sha "089743d3dac38385bc1e189e394cd171be8a6832"}
-        org.slf4j/slf4j-nop {:mvn/version "1.7.25"}
-        com.zaxxer/HikariCP {:mvn/version "2.7.8"}
-        org.clojure/java.jdbc {:mvn/version "0.7.8"}}
+ :deps {coast-framework/helper {:mvn/version "1.0.0"}
+        coast-framework/env {:mvn/version "1.0.3"}
+        coast-framework/time {:mvn/version "1.0.0"}
+        org.clojure/java.jdbc {:mvn/version "0.7.9"}}
 
  :aliases {:repl {:jvm-opts ["-Dclojure.server.repl={:port,5555,:accept,clojure.core.server/repl}"]}
 
