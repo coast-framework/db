@@ -5,11 +5,11 @@ __Warning this library is a work in progress__
 
 ## Install
 
-Add this thing to your `deps.edn` file and your sql lib of choice
+Add this thing to your [deps.edn](https://clojure.org/guides/deps_and_cli) file along with either sqlite or postgres jdbc adapters
 
 ```clojure
-{:deps {coast-framework/db {:git/url "" :sha ""}
-        org.xerial/sqlite-jdbc {:mvn/version "3.25.2"}}}
+coast-framework/db {:mvn/version "0.1.0-SNAPSHOT"}
+org.xerial/sqlite-jdbc {:mvn/version "3.28.0"}
 ```
 
 ## Docs
