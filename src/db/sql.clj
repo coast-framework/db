@@ -302,6 +302,16 @@
        (string/join " ")))
 
 
+(defn order [order-vec]
+  (str "order by " (->> (partition-all 2 order-vec)
+                        (mapv vec)
+                        (mapv #(if (= 1 (count %))
+                                 (conj % 'asc)
+                                 %))
+                        (mapv #(str (helper/sqlize (first %)) " " (name (second %))))
+                        (string/join ", "))))
+
+
 (defn fetch
   ([ctx path-vec options]
    (let [keywords (filter keyword? path-vec)
@@ -316,13 +326,14 @@
                  (where where-clause))
          where-sql (first where)
          params (rest where)
-         {:keys [limit offset]} options]
+         {:keys [limit offset order-by]} options]
        (apply conj
          [(string/join " "
             (filter #(not (string/blank? %))
               [(format "select * from %s" from)
                joins
                (when (some? where) (format "where %s" where-sql))
+               (when (some? order-by) (order order-by))
                (if (pos-int? limit)
                  (str "limit " limit)
                  "")
@@ -341,16 +352,19 @@
          table (table m)
          where-sql (first where)
          where-params (rest where)
-         {:keys [limit offset]} options
+         {:keys [limit offset order-by]} options
          limit (if (pos-int? limit)
                  (str " limit " limit)
                  "")
          offset (if (and (some? offset)
                       (or (zero? offset) (pos-int? offset)))
                   (str " offset " offset)
-                  "")]
+                  "")
+         order-by-sql (if (some? order-by)
+                        (order order-by)
+                        "")]
      (apply conj
-       [(format "select * from %s where %s%s%s" table where-sql limit offset)]
+       [(format "select * from %s where %s%s%s%s" table where-sql limit offset order-by-sql)]
        where-params)))
   ([m]
    (from m {})))
