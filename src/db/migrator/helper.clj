@@ -109,7 +109,7 @@
         "add constraint"
         (or (helper/sqlize fk-name) (str from "_" to "_fk"))
         "foreign key"
-        (str "(" (or (helper/sqlize (str col "_id") to) ")"))
+        (str "(" (or (helper/sqlize (str col "_id")) to) ")")
         "references"
         to
         (str "(" (or (helper/sqlize pk) "id") ")")
