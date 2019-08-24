@@ -101,7 +101,10 @@
   "SQL for adding a foreign key column to an existing table"
   [from to & {col :col pk :pk fk-name :name :as m}]
   (let [from (helper/sqlize from)
-        to (helper/sqlize to)]
+        to (helper/sqlize to)
+        fk (if (some? col)
+             col
+             (helper/sqlize (str to "_id")))]
    (string/join " "
      (filter some?
        ["alter table"
@@ -109,7 +112,7 @@
         "add constraint"
         (or (helper/sqlize fk-name) (str from "_" to "_fk"))
         "foreign key"
-        (str "(" (or (helper/sqlize (str col "_id")) to) ")")
+        (str "(" fk ")")
         "references"
         to
         (str "(" (or (helper/sqlize pk) "id") ")")
