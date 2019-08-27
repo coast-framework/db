@@ -124,5 +124,5 @@
 
 
 (defn generate [version columns indexes foreign-keys]
-  (spit "schema.clj"
+  (spit "db/schema.clj"
     (generate-string version columns indexes foreign-keys)))

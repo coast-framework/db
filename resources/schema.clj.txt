@@ -1,4 +1,4 @@
-(ns db.schema
+(ns schema
   (:require [db.schema.helper :refer :all]))
 
 (defn schema []
