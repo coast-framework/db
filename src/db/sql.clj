@@ -1,7 +1,6 @@
 (ns db.sql
   (:require [helper.core :as helper]
             [clojure.string :as string]
-            [clojure.walk :as walk]
             [db.q])
   (:refer-clojure :exclude [update]))
 
