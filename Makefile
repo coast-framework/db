@@ -1,7 +1,7 @@
 .PHONY: test
 
 test:
-	clj -Atest
+	COAST_ENV=test clj -Atest
 
 repl:
 	clj -Arepl

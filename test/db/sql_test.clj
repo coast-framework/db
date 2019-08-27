@@ -29,7 +29,7 @@
 
 
 (deftest insert-test
-  (let [ctx {"account" {:column-names #{"name"}}}]
+  (let [ctx {:schema {"account" {:column-names #{"name"}}}}]
     (testing "insert with qualified keyword map"
       (is (= ["insert into account (name) values (?)" "name"] (sql/insert ctx {:account/name "name"}))))
 
@@ -47,7 +47,7 @@
 
 
 (deftest update-test
-  (let [ctx {"account" {:column-names #{"name" "id" "a" "b"}}}]
+  (let [ctx {:schema {"account" {:column-names #{"name" "id" "a" "b"}}}}]
     (testing "update with qualified keyword map"
       (is (= ["update account set name = ? where id in (select id from account where id = ? limit 1)" "name" 1]
              (sql/update ctx {:account/name "name"} {:id 1}))))
@@ -148,7 +148,7 @@
 
 
 (deftest upsert-test
-  (let [ctx {"account" {:column-names #{"name" "email" "id"}}}]
+  (let [ctx {:schema {"account" {:column-names #{"name" "email" "id"}}}}]
     (testing "upsert with nested map"
       (is (= ["insert into account (name, email, id) values (?, ?, ?) on conflict(id) do update set name = excluded.name, email = excluded.email, id = excluded.id where id in (select id from account where id = ? limit 1)" "name" "email" 1 1]
              (sql/upsert ctx {:account {:name "name" :email "email" :id 1}}
@@ -160,7 +160,7 @@
                {:unique-by [:account/id]}))))))
 
 (deftest upsert-all-test
-  (let [ctx {"account" {:column-names #{"name" "email" "id"}}}]
+  (let [ctx {:schema {"account" {:column-names #{"name" "email" "id"}}}}]
     (testing "upsert-all with nested map"
       (is (= ["insert into account (name, email, id) values (?, ?, ?), (?, ?, ?) on conflict(id) do update set name = excluded.name, email = excluded.email, id = excluded.id" "name" "email" 1 "name2" "email2" 2]
              (sql/upsert-all ctx {:account [{:name "name" :email "email" :id 1}

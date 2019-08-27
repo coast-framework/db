@@ -18,17 +18,17 @@
 
 (deftest context-test
   (testing "db-edn without a db.edn"
-    (when (.exists (io/file "db.edn"))
-      (io/delete-file "db.edn"))
+    (when (.exists (io/file "db/db.edn"))
+      (io/delete-file "db/db.edn"))
 
     (is (thrown? FileNotFoundException (connector/db-edn))))
 
   (testing "with db.edn"
-    (spit "db.edn" "{:dev {:adapter \"sqlite\"}}")
+    (spit "db/db.edn" "{:dev {:adapter \"sqlite\"}}")
     (is (= "sqlite" (:adapter (connector/context)))))
 
   (testing "with db.edn and :test"
-    (spit "db.edn" "{:test {:adapter \"postgres\"}}")
+    (spit "db/db.edn" "{:test {:adapter \"postgres\"}}")
     (is (= "postgres" (:adapter (connector/context :test))))))
 
 

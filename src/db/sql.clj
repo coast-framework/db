@@ -55,7 +55,7 @@
 
                        :else nil)]
     (when column-names
-      (let [allowed-columns (get-in ctx [table :column-names])]
+      (let [allowed-columns (get-in ctx [:schema table :column-names])]
         (filter #(contains? allowed-columns %) column-names)))))
 
 
