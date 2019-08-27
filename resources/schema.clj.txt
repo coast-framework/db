@@ -1,0 +1,7 @@
+(ns db.schema
+  (:require [db.schema.helper :refer :all]))
+
+(defn schema []
+  (version "{{version}}"
+
+    {{create-tables}}))
