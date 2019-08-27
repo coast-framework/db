@@ -18,10 +18,15 @@
       "(defn placeholder [])")))
 
 
+(defn db-edn []
+  (slurp
+   (or (io/resource "db.edn")
+       "db/db.edn")))
+
 (defn context
   ([db-env]
    (let [db-env (-> (or db-env :dev) keyword)
-         ctx (->> (db-file "db.edn")
+         ctx (->> (db-edn)
                   (edn/read-string {:readers {'env env/env}})
                   (mapv (fn [[k v]] [k v]))
                   (into {}))
