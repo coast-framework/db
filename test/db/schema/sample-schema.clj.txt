@@ -1,0 +1,18 @@
+(ns schema
+  (:require [db.schema.helper :refer :all]))
+
+(defn schema []
+  (version "20190821112134"
+
+    (create-table :account
+      (integer :id :primary-key true :null false)
+      (text :name :null false)
+      (text :email :null false)
+      (text :password :null false))
+
+    (create-table :todo
+      (integer :id :primary-key true :null false)
+      (text :name)
+      (integer :account-id)
+      (index :account-id :name "index_account_id_on_todo")
+      (foreign-key :todo :account))))
