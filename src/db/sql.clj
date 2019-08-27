@@ -43,17 +43,20 @@
     :else nil))
 
 
-(defn columns [m]
-  (cond
-    (table-map? m) (->> m vals first keys (map helper/sqlize))
+(defn columns [ctx table m]
+  (let [column-names (cond
+                       (table-map? m) (->> m vals first keys (map helper/sqlize))
 
-    (and (map? m)
-      (every? qualified-ident? (keys m)))
-    (->> m keys (map name) (map helper/sqlize))
+                       (and (map? m)
+                         (every? qualified-ident? (keys m)))
+                       (->> m keys (map name) (map helper/sqlize))
 
-    (map? m) (->> m keys (map helper/sqlize))
+                       (map? m) (->> m keys (map helper/sqlize))
 
-    :else nil))
+                       :else nil)]
+    (when column-names
+      (let [allowed-columns (get-in ctx [table :column-names])]
+        (filter #(contains? allowed-columns %) column-names)))))
 
 
 (defn placeholders [m]
@@ -118,7 +121,7 @@
   "Takes a db context and map and returns an insert java.jdbc sql vec"
   ([ctx m]
    (let [table (table m)
-         columns (string/join ", " (columns m))
+         columns (string/join ", " (columns ctx table m))
          placeholders (string/join ", " (placeholders m))
          values (values m)
          returning (if (postgres? ctx)
@@ -136,7 +139,7 @@
             (-> maps vals first)
             maps)
         table (table maps)
-        columns (string/join ", " (columns (first m)))
+        columns (string/join ", " (columns ctx table (first m)))
         placeholders (string/join ", " (map #(format "(%s)" (->> (placeholders %) (string/join ", "))) m))
         values (mapcat values m)
         returning (if (postgres? ctx)
@@ -153,7 +156,7 @@
    and a where clause in the form of a map or a sql vec"
   ([ctx m where-clause all?]
    (let [table (table m)
-         columns (columns m)
+         columns (columns ctx table m)
          placeholders (placeholders m)
          values (values m)
          where-clause (where where-clause)
@@ -182,12 +185,8 @@
   (update ctx m where-clause true))
 
 
-(comment
-  (update-all {} {:account {:a "a" :b "b"}} {:id [1 2 3] :name ["hello" nil]}))
-
-
 (defn upsert-params [row {:keys [unique-by]}]
-    (select-keys (params row) unique-by))
+  (select-keys (params row) unique-by))
 
 
 (defn upsert-all-params [rows {:keys [unique-by]}]
@@ -198,7 +197,7 @@
 
 (defn upsert [ctx m options]
   (let [table (table m)
-        columns (columns m)
+        columns (columns ctx table m)
         columns-sql (string/join ", " columns)
         placeholders (string/join ", " (placeholders m))
         values (values m)
@@ -227,7 +226,7 @@
                (-> maps vals first)
                maps)
         table (table maps)
-        columns (columns (first rows))
+        columns (columns ctx table (first rows))
         columns-sql (string/join ", " columns)
         placeholders (string/join ", " (map #(format "(%s)" (->> (placeholders %) (string/join ", "))) rows))
         values (mapcat values rows)
