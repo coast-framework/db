@@ -97,10 +97,11 @@
             (jdbc/insert! conn
               :schema_migrations {:version version})
             (println friendly-name "migrated successfully")))))
-    (schema.generator/generate version
+    (schema.generator/generate (-> (completed-migrations conn) last migration-filename version)
       (schema.generator/columns conn)
       (schema.generator/indexes conn)
-      (schema.generator/foreign-keys conn))))
+      (schema.generator/foreign-keys conn))
+    ""))
 
 
 (defn rollback-statements [filename]

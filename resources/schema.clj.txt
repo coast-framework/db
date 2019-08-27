@@ -2,6 +2,6 @@
   (:require [db.schema.helper :refer :all]))
 
 (defn schema []
-  (version "{{version}}"
+  (version {{version}}
 
     {{create-tables}}))

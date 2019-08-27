@@ -2,7 +2,7 @@
   (:require [db.schema.helper :refer :all]))
 
 (defn schema []
-  (version "20190821112134"
+  (version 20190821112134
 
     (create-table :account
       (integer :id :primary-key true :null false)
