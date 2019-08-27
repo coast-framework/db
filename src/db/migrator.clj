@@ -1,6 +1,7 @@
 (ns db.migrator
   (:require [db.migrator.helper :as migrator.helper]
             [db.migrator.sql :as migrator.sql]
+            [db.schema.generator :as schema.generator]
             [clojure.java.io :as io]
             [clojure.java.jdbc :as jdbc]
             [clojure.string :as string]
@@ -79,7 +80,8 @@
     (reset! migrator.helper/rollback? false)
     (doseq [migration migrations]
       (let [statements (statements migration)
-            friendly-name (string/replace migration #"\.sql|\.clj" "")]
+            friendly-name (string/replace migration #"\.sql|\.clj" "")
+            version (version migration)]
         (if (string/blank? (:sql statements))
           (throw (Exception. (format "%s is empty" migration)))
           (do
@@ -93,8 +95,12 @@
             (jdbc/db-do-commands conn
               (or (:vec statements) (:sql statements)))
             (jdbc/insert! conn
-              :schema_migrations {:version (version migration)})
-            (println friendly-name "migrated successfully")))))))
+              :schema_migrations {:version version})
+            (println friendly-name "migrated successfully")))))
+    (schema.generator/generate version
+      (schema.generator/columns conn)
+      (schema.generator/indexes conn)
+      (schema.generator/foreign-keys conn))))
 
 
 (defn rollback-statements [filename]
