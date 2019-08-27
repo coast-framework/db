@@ -31,7 +31,7 @@
 (def timestamp (partial column :timestamp))
 (def datetime (partial column :datetime))
 (def timestamptz (partial column :timestamptz))
-(def bool (partial column :bool))
+(def bool (partial column :boolean))
 (def decimal (partial column :decimal))
 (def json (partial column :json))
 (def uuid (partial column :uuid))

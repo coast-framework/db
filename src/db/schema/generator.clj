@@ -65,7 +65,9 @@
 
 (defn column [{:keys [column-name column-type primary-key default-value is-not-null]}]
   (format "      (%s %s%s%s%s)"
-    (-> column-type helper/kebab-case str)
+    (if (= "boolean" column-type)
+      (-> "bool" helper/kebab-case str)
+      (-> column-type helper/kebab-case str))
     (-> column-name helper/kebab-case keyword)
     (if (= primary-key 1)
       " :primary-key true"

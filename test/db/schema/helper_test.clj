@@ -1,5 +1,5 @@
 (ns db.schema.helper-test
-  (:require [db.schema.helper :refer [version integer text create-table index foreign-key]]
+  (:require [db.schema.helper :refer [version integer text create-table index foreign-key bool]]
             [clojure.test :refer [deftest testing is]]))
 
 
@@ -11,9 +11,10 @@
                                {:type :text :name :password :null false}]
                      :foreign-keys []
                      :indexes [[:email "index_email_on_account"]]}
-          "todo" {:column-names #{"id" "name" "account_id"}
+          "todo" {:column-names #{"id" "name" "account_id" "finished"}
                   :columns [{:type :integer :name :id :primary-key true}
                             {:type :text :name :name :null false}
+                            {:type :boolean :name :finished :null false}
                             {:type :integer :name :account-id}]
                   :indexes [[:account-id "index_account_id_on_todo"]]
                   :foreign-keys [[:account :todo]]}}
@@ -28,6 +29,7 @@
           (create-table :todo
            (integer :id :primary-key true)
            (text :name :null false)
+           (bool :finished :null false)
            (integer :account-id)
            (foreign-key :account :todo)
            (index :account-id :name "index_account_id_on_todo"))))))
