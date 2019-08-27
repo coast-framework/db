@@ -7,19 +7,30 @@
            (java.io FileNotFoundException)))
 
 
-(defn db-edn []
-  (let [filename "db.edn"
+(defn db-file [filename]
+  (let [db-filename (format "db/%s" filename)
         resource (io/resource filename)]
-    (slurp (or resource filename))))
+    (if (or resource
+          (.exists (io/file db-filename)))
+      (slurp
+        (or (io/resource filename)
+            db-filename))
+      "(defn placeholder [])")))
 
 
 (defn context
   ([db-env]
-   (let [ctx (->> (db-edn)
+   (let [db-env (-> (or db-env :dev) keyword)
+         ctx (->> (db-file "db.edn")
                   (edn/read-string {:readers {'env env/env}})
                   (mapv (fn [[k v]] [k v]))
-                  (into {}))]
-      (get ctx (keyword (or db-env :dev)))))
+                  (into {}))
+         ctx (get ctx db-env)
+         schema ((load-string
+                  (db-file "schema.clj")))
+         associations ((load-string
+                         (db-file "associations.clj")))]
+     (assoc ctx :schema schema :associations associations)))
   ([]
    (context :dev)))
 
