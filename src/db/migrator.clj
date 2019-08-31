@@ -122,24 +122,34 @@
 (defn rollback [conn]
   (let [migration (-> (completed-migrations conn) last migration-filename)
         _ (reset! migrator.helper/rollback? true)]
-    (when (some? migration)
-        (let [statements (rollback-statements migration)
-              friendly-name (string/replace migration #"\.sql|\.clj" "")]
-          (if (string/blank? (:sql statements))
-            (throw (Exception. (format "%s is empty" migration)))
-            (do
-              (println "")
-              (println "-- Rolling back:" friendly-name "---------------------")
-              (println "")
-              (println (:sql statements))
-              (println "")
-              (println "--" friendly-name "---------------------")
-              (println "")
-              (jdbc/db-do-commands conn
-                (or (:vec statements) (:sql statements)))
-              (jdbc/delete! conn
-                :schema_migrations ["version = ?" (version migration)])
-              (println friendly-name "rolled back successfully")))))))
+    (if (not (some? migration))
+      ""
+      (let [statements (rollback-statements migration)
+            friendly-name (string/replace migration #"\.sql|\.clj" "")]
+        (if (string/blank? (:sql statements))
+          (throw (Exception. (format "%s is empty" migration)))
+          (do
+            (println "")
+            (println "-- Rolling back:" friendly-name "---------------------")
+            (println "")
+            (println (:sql statements))
+            (println "")
+            (println "--" friendly-name "---------------------")
+            (println "")
+            (jdbc/db-do-commands conn
+              (or (:vec statements) (:sql statements)))
+            (jdbc/delete! conn
+              :schema_migrations ["version = ?" (version migration)])
+            (println friendly-name "rolled back successfully")
+            (let [{version :version} (first
+                                      (jdbc/query conn ["select version from schema_migrations order by version desc limit 1"]))]
+              (if (nil? version)
+                (io/delete-file "db/schema.clj")
+                (schema.generator/generate version
+                  (schema.generator/columns conn)
+                  (schema.generator/indexes conn)
+                  (schema.generator/foreign-keys conn)))
+              "")))))))
 
 
 (defn create
