@@ -1,6 +1,7 @@
 (ns db.sql-test
   (:require [db.sql :as sql]
-            [clojure.test :refer [deftest testing is]]))
+            [clojure.test :refer [deftest testing is]]
+            [time.core :as time]))
 
 
 (deftest table-test
@@ -70,7 +71,17 @@
 
     (testing "update-all with a nested map"
       (is (= ["update account set a = ?, b = ? where id in (?, ?, ?)" "a" "b" 1 2 3]
-             (sql/update-all ctx {:account {:a "a" :b "b"}} {:id [1 2 3]}))))))
+             (sql/update-all ctx {:account {:a "a" :b "b"}} {:id [1 2 3]})))))
+
+  (let [ctx {:schema {"account" {:column-names #{"name" "id" "a" "b"} :columns [{:type :integer :name :updated-at}]}}}]
+    (with-redefs [time/now (fn [] 12345)]
+      (testing "update with updated-at"
+        (is (= ["update account set name = ?, updated_at = ? where id in (select id from account where id = ? limit 1)" "name" 12345 1]
+               (sql/update ctx {:account {:name "name"}} {:id 1}))))
+
+      (testing "update-all with updated-at"
+        (is (= ["update account set name = ?, updated_at = ? where name = ?" "name" 12345 "name1"]
+               (sql/update-all ctx {:account {:name "name"}} ["name = ?" "name1"])))))))
 
 
 (deftest delete-test
@@ -157,7 +168,14 @@
     (testing "upsert with qualified keyword map"
       (is (= ["insert into account (name, email, id) values (?, ?, ?) on conflict(account.id) do update set name = excluded.name, email = excluded.email, id = excluded.id where id in (select id from account where account.id = ? limit 1)" "name" "email" 1 1]
              (sql/upsert ctx #:account{:name "name" :email "email" :id 1}
-               {:unique-by [:account/id]}))))))
+               {:unique-by [:account/id]})))))
+
+  (let [ctx {:schema {"account" {:column-names #{"name" "email" "id"} :columns [{:type :integer :name :updated-at}]}}}]
+    (with-redefs [time/now (fn [] 12345)]
+      (testing "upsert with updated-at"
+        (is (= ["insert into account (name, email, id) values (?, ?, ?) on conflict(id) do update set name = excluded.name, email = excluded.email, id = excluded.id, updated_at = ? where id in (select id from account where id = ? limit 1)" "name" "email" 1 12345 1]
+               (sql/upsert ctx {:account {:name "name" :email "email" :id 1}}
+                 {:unique-by [:id]})))))))
 
 (deftest upsert-all-test
   (let [ctx {:schema {"account" {:column-names #{"name" "email" "id"}}}}]
@@ -178,7 +196,15 @@
              (sql/upsert-all (assoc ctx :adapter "postgres")
                [#:account{:name "name" :email "email" :id 1}
                 #:account{:name "name2" :email "email2" :id 2}]
-               {:unique-by [:account/id]}))))))
+               {:unique-by [:account/id]})))))
+
+  (let [ctx {:schema {"account" {:column-names #{"name" "email" "id"} :columns [{:type :integer :name :updated-at}]}}}]
+    (with-redefs [time/now (fn [] 12345)]
+      (testing "upsert-all with nested map and updated-at"
+        (is (= ["insert into account (name, email, id) values (?, ?, ?), (?, ?, ?) on conflict(id) do update set name = excluded.name, email = excluded.email, id = excluded.id, updated_at = ?" "name" "email" 1 "name2" "email2" 2 12345]
+               (sql/upsert-all ctx {:account [{:name "name" :email "email" :id 1}
+                                              {:name "name2" :email "email2" :id 2}]}
+                 {:unique-by [:id]})))))))
 
 (deftest upsert-all-params-test
   (testing "upsert-all-params with nested map"

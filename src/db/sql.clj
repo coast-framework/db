@@ -1,5 +1,6 @@
 (ns db.sql
   (:require [helper.core :as helper]
+            [time.core :as time]
             [clojure.string :as string]
             [db.q])
   (:refer-clojure :exclude [update]))
@@ -57,6 +58,22 @@
     (when column-names
       (let [allowed-columns (get-in ctx [:schema table :column-names])]
         (filter #(contains? allowed-columns %) column-names)))))
+
+
+(defn updated-at-column? [column]
+  (and (= :integer (:type column))
+       (= :updated-at (:name column))))
+
+
+(defn has-updated-at? [ctx table]
+  (let [columns (get-in ctx [:schema table :columns])]
+    (some? (first (filter updated-at-column? columns)))))
+
+
+(defn add-updated-at [ctx table]
+  (if (has-updated-at? ctx table)
+    ", updated_at = ?"
+    ""))
 
 
 (defn placeholders [m]
@@ -174,9 +191,9 @@
                     where-sql
                     (format "id in (select id from %s where %s limit 1)" table where-sql))]
       (apply conj
-        [(format "update %s set %s where %s%s"
-           table set-columns where-in returning)]
-        (concat values where-values))))
+        [(format "update %s set %s%s where %s%s"
+           table set-columns (add-updated-at ctx table) where-in returning)]
+        (concat values (if (has-updated-at? ctx table) [(time/now)] []) where-values))))
   ([ctx m where-clause]
    (update ctx m where-clause false)))
 
@@ -215,10 +232,10 @@
                     " returning *"
                     "")]
     (apply conj
-     [(format "insert into %s (%s) values (%s) on conflict(%s) do update set %s where id in (select id from %s where %s limit 1)%s"
-        table columns-sql placeholders conflict set-columns
+     [(format "insert into %s (%s) values (%s) on conflict(%s) do update set %s%s where id in (select id from %s where %s limit 1)%s"
+        table columns-sql placeholders conflict set-columns (add-updated-at ctx table)
         table where-sql returning)]
-     (concat values where-values))))
+     (concat values (if (has-updated-at? ctx table) [(time/now)] []) where-values))))
 
 
 (defn upsert-all [ctx maps options]
@@ -240,9 +257,9 @@
                     " returning *"
                     "")]
     (apply conj
-     [(format "insert into %s (%s) values %s on conflict(%s) do update set %s%s"
-        table columns-sql placeholders conflict set-columns returning)]
-     values)))
+     [(format "insert into %s (%s) values %s on conflict(%s) do update set %s%s%s"
+        table columns-sql placeholders conflict set-columns (add-updated-at ctx table) returning)]
+     (concat values (if (has-updated-at? ctx table) [(time/now)] [])))))
 
 
 (defn delete
