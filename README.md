@@ -183,4 +183,4 @@ This is coast's database library and it handles the following:
 - SQL Helpers
 - Connection Pooling
 
-You either die a small library or you live long enough to become a big one.
+> You either die a small library or you live long enough to become a big one.
